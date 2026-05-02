@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect } from "react"
 import { Activity, Zap } from "lucide-react"
 import { PersonaToggle } from "@/components/persona-toggle"
 import { MacroDashboard } from "@/components/macro-dashboard"
@@ -40,6 +40,17 @@ export default function Home() {
   const [briefContent, setBriefContent] = useState<string | null>(null)
   const [briefError, setBriefError] = useState<string | null>(null)
   const [apiKey, setApiKey] = useState("")
+  const [currentTime, setCurrentTime] = useState<string | null>(null)
+
+  // Hydration-safe time display
+  useEffect(() => {
+    const updateTime = () => {
+      setCurrentTime(new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }))
+    }
+    updateTime()
+    const interval = setInterval(updateTime, 60000)
+    return () => clearInterval(interval)
+  }, [])
   
   // Dashboard data state
   const [dashboardData, setDashboardData] = useState<DashboardData>({
@@ -170,10 +181,12 @@ export default function Home() {
               <div className="hidden md:flex items-center gap-2 text-xs text-muted-foreground">
                 <Activity className="w-3 h-3 text-primary animate-pulse" />
                 <span>Online</span>
-                <span className="text-border">|</span>
-                <span className="font-mono">
-                  {new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}
-                </span>
+                {currentTime && (
+                  <>
+                    <span className="text-border">|</span>
+                    <span className="font-mono">{currentTime}</span>
+                  </>
+                )}
               </div>
             </div>
           </div>
