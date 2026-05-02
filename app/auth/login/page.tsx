@@ -38,6 +38,18 @@ export default function Page() {
   return (
     <div className="min-h-svh flex items-center justify-center p-6 md:p-10 bg-background">
       <div className="w-full max-w-sm">
+
+        {/* Hackathon demo bypass */}
+        <Link
+          href="/demo"
+          className="flex items-center justify-center gap-2 w-full mb-6 px-4 py-3 rounded-lg border-2 border-amber-500/60 bg-amber-500/10 hover:bg-amber-500/20 transition-colors text-amber-400 font-semibold text-sm tracking-wide"
+        >
+          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-amber-500/30 text-amber-300 text-xs font-mono font-bold tracking-widest">
+            HACKATHON DEMO
+          </span>
+          Click here to enter without login
+        </Link>
+
         <Link href="/" className="flex items-center gap-2 mb-8 justify-center">
           <div className="flex items-center justify-center w-9 h-9 rounded-md bg-primary">
             <TerminalSquare className="w-5 h-5 text-primary-foreground" />

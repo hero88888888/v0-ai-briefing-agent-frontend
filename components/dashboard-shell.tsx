@@ -36,12 +36,58 @@ interface BriefRow {
 }
 
 interface DashboardShellProps {
-  plan: Plan
-  planName: string
-  monthlyBriefLimit: number | null
-  initialDashboardData: DashboardData
-  initialBriefs: BriefRow[]
+  plan?: Plan
+  planName?: string
+  monthlyBriefLimit?: number | null
+  initialDashboardData?: DashboardData
+  initialBriefs?: BriefRow[]
+  // Demo mode: bypasses auth + server actions, uses mock data
+  isDemo?: boolean
+  user?: { id: string; email: string; plan: Plan; full_name: string; briefs_used: number; briefs_limit: number }
+  savedConfigs?: DashboardData
 }
+
+const MOCK_BRIEFS: Record<string, string> = {
+  macro: `**MACRO INTELLIGENCE BRIEF — ${new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}**
+
+**1. Fed Pivot Timeline Repriced**
+Markets have pushed first-cut expectations to September after CPI came in at 3.4% vs. 3.2% consensus. The 2-year Treasury yield spiked 14bps to 4.97%. Watch Friday's PCE print — a sub-2.7% core reading could re-open the July cut narrative. Your US Treasuries position faces duration headwinds near-term.
+
+**2. EM Dislocation: EUR/USD Testing 1.065 Support**
+Dollar strength from sticky US inflation is compressing EM carry trades. EUR/USD broke through the 1.07 level — next technical support at 1.065. ECB's Lagarde signalled a June cut is "very likely," widening the Fed-ECB policy divergence. This validates your long USD positioning from the Q1 memo.
+
+**3. Crude Oil: OPEC+ Compliance Data Released**
+Saudi Arabia and Russia maintained ~98% compliance with production cuts in March. Brent held $87-$89 range despite demand concerns from China PMI miss (49.1 vs. 50.4 expected). Goldman maintaining $95 year-end target. Your Crude Oil tracking positions may benefit — supply discipline holding.
+
+*Sources: Fed Minutes, Eurostat CPI, OPEC Monthly Report, Goldman Sachs Commodities Research*`,
+
+  career: `**CAREER ALPHA BRIEF — ${new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}**
+
+**1. OpenAI Expanding Chief of Staff Function**
+OpenAI posted 3 new senior strategy roles this week, all reporting directly to the COO. LinkedIn signals show 40% headcount growth in the "Strategy & Operations" function YoY. Former McKinsey and Goldman alumni dominating recent hires. Strong signal for your target role profile.
+
+**2. Anthropic Series E Closes — Growth Phase Begins**
+Anthropic closed $2.5B Series E at $18B valuation. Historically, post-series-E growth = aggressive senior hiring in BD, Partnerships, and Government Affairs. Their Head of BD role has been open 47 days — well above their median 28-day fill time. Your target companies are in active hiring mode.
+
+**3. Google DeepMind: Enterprise Go-To-Market Build-Out**
+Internal job postings indicate DeepMind standing up a dedicated Enterprise GTM team separate from Google Cloud. 12 new senior IC roles posted this month across Sales, BD, and Solutions. Role requires both technical depth and commercial track record — matches your stated target profile.
+
+*Sources: LinkedIn Talent Insights, Crunchbase, Glassdoor Company Updates, Lever job board data*`,
+
+  client: `**CLIENT INTELLIGENCE BRIEF — ${new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}**
+
+**1. Snowflake Q1 Earnings Signal Budget Re-opening**
+Snowflake beat revenue estimates by 4% ($790M vs. $759M). CEO Sridhar Ramaswamy flagged "increased consumption from existing enterprise accounts" — a leading indicator that data platform budgets are unfreezing after the 2023 cost-cutting cycle. Your contact David Kim's team likely has renewed discretionary spend.
+
+**2. Palantir: New CRO Reorganisation Nearly Complete**
+Per LinkedIn activity patterns, Palantir's new CRO has completed the first layer of the sales reorg. Former contacts who moved teams are now posting again — typically a signal that the reorg settling period is over. Window opening to re-engage James through his new division lead.
+
+**3. Databricks vs. Microsoft Fabric: Competitive Intelligence**
+Microsoft Fabric released 4 major feature updates this week targeting Databricks' core lakehouse functionality. However, Databricks' customer satisfaction scores on G2 remain 12pts higher (4.4 vs. 4.1). Your Q3 Databricks renewal is high-risk — lead with integration depth and migration cost arguments rather than feature parity.
+
+*Sources: Snowflake Investor Relations, LinkedIn Sales Navigator signals, G2 Crowd, Microsoft Tech Community Blog*`,
+}
+
 
 const personaConfig = {
   macro: { title: "Macro Intelligence", description: "Track markets, portfolios, and macro events" },
@@ -61,18 +107,34 @@ function rowToSavedBrief(row: BriefRow): SavedBrief {
   }
 }
 
+const DEFAULT_DASHBOARD_DATA: DashboardData = {
+  macro: { portfolios: [], assetClasses: [], context: "" },
+  career: { companies: [], roles: [], context: "" },
+  client: { accounts: [], competitors: [], context: "" },
+}
+
 export function DashboardShell({
-  plan,
-  planName,
-  monthlyBriefLimit,
+  plan: planProp,
+  planName: planNameProp,
+  monthlyBriefLimit: monthlyBriefLimitProp,
   initialDashboardData,
   initialBriefs,
+  isDemo = false,
+  savedConfigs,
 }: DashboardShellProps) {
   const router = useRouter()
+
+  // In demo mode, use Pro plan with no limits
+  const plan: Plan = isDemo ? "pro" : (planProp ?? "free")
+  const planName = isDemo ? "Pro (Demo)" : (planNameProp ?? "Free")
+  const monthlyBriefLimit = isDemo ? null : monthlyBriefLimitProp
+
   const [activePersona, setActivePersona] = useState<Persona>("macro")
-  const [dashboardData, setDashboardData] = useState<DashboardData>(initialDashboardData)
+  const [dashboardData, setDashboardData] = useState<DashboardData>(
+    savedConfigs ?? initialDashboardData ?? DEFAULT_DASHBOARD_DATA,
+  )
   const [savedBriefs, setSavedBriefs] = useState<SavedBrief[]>(
-    initialBriefs.map(rowToSavedBrief),
+    (initialBriefs ?? []).map(rowToSavedBrief),
   )
 
   // Modal state
@@ -85,14 +147,15 @@ export function DashboardShell({
   const [isGenerating, setIsGenerating] = useState(false)
   const [, startSaveTransition] = useTransition()
 
-  // Persist config changes (debounced via per-update server action)
+  // Persist config changes (skip in demo mode — no auth session)
   const persistConfig = useCallback(
     (persona: Persona, next: Record<string, unknown>) => {
+      if (isDemo) return
       startSaveTransition(async () => {
         await saveDashboardConfig(persona, next)
       })
     },
-    [],
+    [isDemo],
   )
 
   const updateMacro = useCallback(
@@ -136,6 +199,29 @@ export function DashboardShell({
     setBriefDataSources(undefined)
     setBriefCitations(undefined)
     setBriefGeneratedAt(Date.now())
+
+    // Demo mode: simulate a 1.5s generation then show pre-written brief
+    if (isDemo) {
+      await new Promise((resolve) => setTimeout(resolve, 1500))
+      const mockContent = MOCK_BRIEFS[activePersona]
+      setBriefContent(mockContent)
+      setBriefDataSources({ brightData: { enabled: true, live: true, itemCount: 12 }, mubit: { enabled: true } })
+      const demoId = `demo-${Date.now()}`
+      setSavedBriefs((prev) => [
+        {
+          id: demoId,
+          persona: activePersona,
+          content: mockContent,
+          createdAt: Date.now(),
+          preview: mockContent.replace(/\*\*/g, "").slice(0, 110).trim(),
+          liveData: true,
+          memoryUsed: true,
+        },
+        ...prev,
+      ])
+      setIsGenerating(false)
+      return
+    }
 
     const inputData =
       activePersona === "macro"
