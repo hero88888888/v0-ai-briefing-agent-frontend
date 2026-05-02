@@ -1,8 +1,9 @@
 "use server"
 
 import { generateText, wrapLanguageModel } from "ai"
-import { createOpenAI } from "@ai-sdk/openai"
 import { mubitMemoryMiddleware } from "@mubit-ai/ai-sdk"
+import { createClient } from "@/lib/supabase/server"
+import { canUseBrightData, canUseMubit, getPlan } from "@/lib/plans"
 import {
   fetchRealTimeNews,
   fetchJobPostings,
@@ -10,18 +11,16 @@ import {
   formatIntelligenceForPrompt,
   collectCitations,
   type Citation,
+  type FetchResult,
+  type NewsItem,
+  type JobPosting,
+  type CompanyIntel,
 } from "@/lib/bright-data"
 
 export type Persona = "macro" | "career" | "client"
 
 export interface GenerateBriefInput {
   persona: Persona
-  apiKey: string
-  brightDataApiKey?: string
-  brightDataZone?: string
-  mubitApiKey?: string
-  /** Stable session id so Mubit memory accumulates across briefs. */
-  sessionId?: string
   data: {
     context?: string
     portfolios?: string[]
@@ -34,204 +33,299 @@ export interface GenerateBriefInput {
 }
 
 export interface BriefDataSources {
-  brightData: {
-    enabled: boolean
-    live: boolean
-    itemCount: number
-    error?: string
-  }
-  mubit: {
-    enabled: boolean
-  }
+  brightData: { enabled: boolean; live: boolean; itemCount: number; error?: string }
+  mubit: { enabled: boolean }
 }
 
 export interface GenerateBriefResult {
   success: boolean
   brief?: string
+  briefId?: string
   citations?: Citation[]
   dataSources?: BriefDataSources
+  usage?: { used: number; limit: number | null }
   error?: string
+  errorCode?:
+    | "not_authenticated"
+    | "limit_reached"
+    | "ai_error"
+    | "internal"
 }
 
-const systemPrompts: Record<Persona, string> = {
-  macro: `You are an elite macro intelligence analyst working at a top-tier hedge fund. Your role is to provide concise, actionable briefings for portfolio managers.
+// ------------------ System prompts ------------------
 
-Generate a 3-bullet-point intelligence brief that:
-1. Identifies the most critical market development affecting the tracked assets (prioritize real-time news)
-2. Highlights a key risk or opportunity across the portfolios
-3. Provides one specific action item for today
+const SYSTEM_PROMPTS: Record<Persona, string> = {
+  macro: `You are an elite macro intelligence analyst at a top-tier hedge fund. Generate a sharp, actionable 3-bullet briefing for portfolio managers.
 
-CRITICAL INSTRUCTIONS:
-- If REAL-TIME NEWS data is provided, you MUST incorporate it into your analysis. Reference specific headlines and sources by name.
-- If "Past Trade Memos & Briefs" context is provided, you MUST cross-reference it. Explicitly connect new developments to past analysis (e.g., "Building on your Q1 memo prediction about BoJ rate hikes...").
-- If MEMORY context is injected by the system, weight it heavily — it represents the user's prior briefs and outcomes.
-- If a bullet draws from any provided context, notes, or memory, end that bullet with [LINKED].
+Each bullet must:
+- Be a single dense sentence with specific numbers, names, or levels
+- Identify a market development, risk/opportunity, or actionable trade
+- Use real market terminology
 
-Be specific, use realistic market terminology, and reference actual market dynamics. Format each bullet as a single impactful sentence. Output exactly 3 bullets, numbered 1., 2., 3.`,
+If the user provided "Past Trade Memos & Briefs", you MUST cross-reference them and tag those bullets with [LINKED] (e.g. "Building on your Q1 BoJ memo...").
+If REAL-TIME NEWS is provided, you MUST weave in the most relevant items and tag those bullets with [SOURCE: <source name>].
 
-  career: `You are a career strategist specializing in high-growth tech companies and executive roles. Your role is to provide concise, actionable intelligence for ambitious professionals.
+Output exactly 3 bullets, numbered 1., 2., 3. — no preamble, no closing remarks.`,
 
-Generate a 3-bullet-point career intelligence brief that:
-1. Identifies the most relevant hiring signal or opportunity at the target companies (prioritize real-time job postings and news)
-2. Highlights a strategic networking move or career positioning insight
-3. Provides one specific action item for today
+  career: `You are a career strategist for ambitious operators in high-growth tech. Generate a sharp 3-bullet briefing.
 
-CRITICAL INSTRUCTIONS:
-- If REAL-TIME NEWS or JOB POSTINGS data is provided, you MUST incorporate it. Reference specific job listings and company news.
-- If "Friend Group Shared Notes" context is provided, you MUST cross-reference it. Explicitly connect new insights to past conversations (e.g., "Following up on John's interview feedback from Stripe...").
-- If MEMORY context is injected by the system, weight it heavily — it represents prior briefs and learned lessons.
-- If a bullet draws from any provided context, notes, or memory, end that bullet with [LINKED].
+Each bullet must:
+- Be a single dense sentence with specific company names, roles, and signals
+- Identify a hiring signal, networking move, or career action
 
-Be specific about companies, roles, and realistic career dynamics. Format each bullet as a single impactful sentence. Output exactly 3 bullets, numbered 1., 2., 3.`,
+If "Friend Group Shared Notes" are provided, you MUST cross-reference them and tag those bullets with [LINKED].
+If REAL-TIME JOB POSTINGS or NEWS are provided, weave them in and tag those bullets with [SOURCE: <source name>].
 
-  client: `You are a B2B sales strategist specializing in enterprise technology sales. Your role is to identify account triggers and competitive intelligence for sales professionals.
+Output exactly 3 bullets, numbered 1., 2., 3. — no preamble, no closing remarks.`,
 
-Generate a 3-bullet-point sales intelligence brief that:
-1. Identifies the most actionable trigger event at a target account (prioritize real-time intel: leadership changes, earnings, product launches)
-2. Highlights a competitive threat or positioning opportunity vs tracked competitors
-3. Provides one specific sales action item for today
+  client: `You are a B2B sales strategist focused on enterprise tech. Generate a sharp 3-bullet briefing.
 
-CRITICAL INSTRUCTIONS:
-- If REAL-TIME COMPANY INTEL data is provided, you MUST incorporate it. Reference specific trigger events and their sources.
-- If "CRM & Team Notes" context is provided, you MUST cross-reference it. Explicitly connect trigger events to relationship history (e.g., "Building on your previous conversation with the CTO about cloud costs...").
-- If MEMORY context is injected by the system, weight it heavily — it represents prior briefs and learned lessons.
-- If a bullet draws from any provided context, notes, or memory, end that bullet with [LINKED].
+Each bullet must:
+- Be a single dense sentence with specific account names, trigger events, and a sales motion
+- Identify a trigger event, competitive threat, or sales action
 
-Be specific about companies, realistic business events, and sales strategies. Format each bullet as a single impactful sentence. Output exactly 3 bullets, numbered 1., 2., 3.`,
+If "CRM & Team Notes" are provided, you MUST cross-reference them and tag those bullets with [LINKED] (e.g. "Building on your conversation with the CTO about cloud costs...").
+If REAL-TIME ACCOUNT TRIGGERS or COMPETITIVE INTEL are provided, weave them in and tag those bullets with [SOURCE: <source name>].
+
+Output exactly 3 bullets, numbered 1., 2., 3. — no preamble, no closing remarks.`,
 }
 
-const personaContextLabel: Record<Persona, string> = {
+const PERSONA_CONTEXT_LABEL: Record<Persona, string> = {
   macro: "Past Trade Memos & Briefs",
   career: "Friend Group Shared Notes",
   client: "CRM & Team Notes",
 }
 
-export async function generateBrief(input: GenerateBriefInput): Promise<GenerateBriefResult> {
-  if (!input.apiKey || input.apiKey.trim() === "") {
-    return {
-      success: false,
-      error: "OpenAI API key is required. Add it in the header.",
-    }
-  }
+// ------------------ Helpers ------------------
 
-  try {
-    // ---------- 1. Fetch real-time data via Bright Data ----------
-    const brightDataConfig = input.brightDataApiKey
-      ? { apiKey: input.brightDataApiKey, zone: input.brightDataZone }
-      : undefined
-
-    let news, jobs, companyIntel
-    if (input.persona === "macro") {
-      const keywords = [...(input.data.assetClasses ?? []), ...(input.data.portfolios ?? [])]
-      news = await fetchRealTimeNews("macro", keywords, brightDataConfig)
-    } else if (input.persona === "career") {
-      news = await fetchRealTimeNews("career", input.data.companies ?? [], brightDataConfig)
-      jobs = await fetchJobPostings(input.data.companies ?? [], input.data.roles ?? [], brightDataConfig)
-    } else {
-      news = await fetchRealTimeNews("client", input.data.accounts ?? [], brightDataConfig)
-      companyIntel = await fetchCompanyIntel(
-        input.data.accounts ?? [],
-        input.data.competitors ?? [],
-        brightDataConfig,
-      )
-    }
-
-    const realTimeSection = formatIntelligenceForPrompt(news, jobs, companyIntel)
-
-    // ---------- 2. Build prompt ----------
-    let userPrompt = buildBaseUserPrompt(input.persona, input.data)
-    if (realTimeSection) userPrompt += `\n\n${realTimeSection}`
-
-    if (input.data.context?.trim()) {
-      userPrompt += `\n\n--- ${personaContextLabel[input.persona]} (Cross-reference this in your analysis) ---\n${input.data.context}\n---`
-    }
-
-    userPrompt += `\n\nProvide exactly 3 bullet points, each as a single sentence. If you reference the historical context, notes, or memory, end that bullet with [LINKED].`
-
-    // ---------- 3. Build model, optionally wrapped with Mubit memory ----------
-    const openai = createOpenAI({ apiKey: input.apiKey })
-    const baseModel = openai("gpt-4o-mini")
-
-    const sessionId = input.sessionId || `briefing-agent-${input.persona}`
-    const mubitEnabled = !!input.mubitApiKey
-
-    const model = mubitEnabled
-      ? wrapLanguageModel({
-          model: baseModel,
-          // The Mubit middleware:
-          //  1. transformParams: injects retrieved memory into the prompt
-          //  2. wrapGenerate: captures the (query, response) pair after the call
-          // Cast to `any` because Mubit's LanguageModelV*Middleware union doesn't
-          // line up perfectly with AI SDK 6's narrowed v3 type, but the runtime
-          // contract is correct.
-          middleware: mubitMemoryMiddleware({
-            apiKey: input.mubitApiKey,
-            sessionId,
-            agentId: `briefing-${input.persona}`,
-            captureMode: "await",
-          }) as any,
-        })
-      : baseModel
-
-    // ---------- 4. Generate ----------
-    const { text } = await generateText({
-      model,
-      system: systemPrompts[input.persona],
-      prompt: userPrompt,
-      maxOutputTokens: 600,
-    })
-
-    // ---------- 5. Build result ----------
-    const citations = collectCitations(news, companyIntel)
-
-    const dataSources: BriefDataSources = {
-      brightData: {
-        enabled: !!input.brightDataApiKey,
-        live: !!(news?.live || jobs?.live || companyIntel?.live),
-        itemCount: (news?.items.length ?? 0) + (jobs?.items.length ?? 0) + (companyIntel?.items.length ?? 0),
-        error: news?.error || jobs?.error || companyIntel?.error,
-      },
-      mubit: { enabled: mubitEnabled },
-    }
-
-    return { success: true, brief: text, citations, dataSources }
-  } catch (error) {
-    console.error("[v0] generateBrief error:", error)
-
-    if (error instanceof Error) {
-      const msg = error.message
-      if (msg.includes("Incorrect API key") || msg.toLowerCase().includes("invalid api key")) {
-        return { success: false, error: "Invalid OpenAI API key. Double-check the key in the header." }
-      }
-      if (msg.toLowerCase().includes("quota") || msg.toLowerCase().includes("rate limit")) {
-        return { success: false, error: "OpenAI rate limit hit. Wait a moment and try again." }
-      }
-      if (msg.toLowerCase().includes("model") && msg.toLowerCase().includes("not found")) {
-        return { success: false, error: "Your API key doesn't have access to gpt-4o-mini." }
-      }
-      return { success: false, error: msg }
-    }
-
-    return { success: false, error: "Failed to generate brief. Please try again." }
-  }
+function currentMonthKey(): string {
+  const now = new Date()
+  return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`
 }
 
 function buildBaseUserPrompt(persona: Persona, data: GenerateBriefInput["data"]): string {
   switch (persona) {
     case "macro":
-      return `Generate my daily macro intelligence brief.
+      return `Generate today's macro intelligence brief.
 
-Target Portfolios/PMs: ${data.portfolios?.join(", ") || "Global Macro Fund, EM Opportunities"}
-Tracked Asset Classes: ${data.assetClasses?.join(", ") || "US Treasuries, EUR/USD, Crude Oil"}`
+Target Portfolios/PMs: ${data.portfolios?.join(", ") || "Global Macro Fund"}
+Tracked Asset Classes: ${data.assetClasses?.join(", ") || "US Treasuries, EUR/USD"}`
     case "career":
-      return `Generate my daily career alpha brief.
+      return `Generate today's career alpha brief.
 
-Target Companies: ${data.companies?.join(", ") || "OpenAI, Anthropic, Google DeepMind"}
-Target Roles: ${data.roles?.join(", ") || "Chief of Staff, VP Strategy, Head of BD"}`
+Target Companies: ${data.companies?.join(", ") || "OpenAI, Anthropic"}
+Target Roles: ${data.roles?.join(", ") || "Chief of Staff"}`
     case "client":
-      return `Generate my daily client intelligence brief.
+      return `Generate today's client intelligence brief.
 
-Target Accounts: ${data.accounts?.join(", ") || "Snowflake, Palantir, Databricks"}
-Tracked Competitors: ${data.competitors?.join(", ") || "Microsoft Azure, AWS, Google Cloud"}`
+Target Accounts: ${data.accounts?.join(", ") || "Snowflake, Palantir"}
+Tracked Competitors: ${data.competitors?.join(", ") || "Microsoft Azure"}`
   }
+}
+
+// ------------------ Main action ------------------
+
+export async function generateBrief(input: GenerateBriefInput): Promise<GenerateBriefResult> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return { success: false, error: "Not authenticated", errorCode: "not_authenticated" }
+  }
+
+  // Load profile for plan
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("plan")
+    .eq("id", user.id)
+    .single()
+
+  const plan = getPlan(profile?.plan)
+
+  // ------ Enforce monthly brief limit ------
+  const month = currentMonthKey()
+  const { data: usageRow } = await supabase
+    .from("usage")
+    .select("briefs_count")
+    .eq("user_id", user.id)
+    .eq("month", month)
+    .maybeSingle()
+
+  const used = usageRow?.briefs_count ?? 0
+  if (plan.monthlyBriefLimit !== null && used >= plan.monthlyBriefLimit) {
+    return {
+      success: false,
+      errorCode: "limit_reached",
+      error: `You've used all ${plan.monthlyBriefLimit} briefs on the ${plan.name} plan this month. Upgrade to Pro for unlimited briefs.`,
+      usage: { used, limit: plan.monthlyBriefLimit },
+    }
+  }
+
+  // ------ Optionally fetch live intel (Pro/Team only) ------
+  const brightDataApiKey = process.env.BRIGHT_DATA_API_KEY
+  const brightDataZone = process.env.BRIGHT_DATA_ZONE
+  const brightDataAllowed = canUseBrightData(plan.id) && Boolean(brightDataApiKey)
+  const bdConfig = brightDataAllowed
+    ? { apiKey: brightDataApiKey!, zone: brightDataZone }
+    : undefined
+
+  let news: FetchResult<NewsItem> | undefined
+  let jobs: FetchResult<JobPosting> | undefined
+  let companyIntel: FetchResult<CompanyIntel> | undefined
+
+  try {
+    if (input.persona === "macro") {
+      const keywords = [
+        ...(input.data.assetClasses ?? []),
+        ...(input.data.portfolios ?? []),
+      ]
+      news = await fetchRealTimeNews("macro", keywords, bdConfig)
+    } else if (input.persona === "career") {
+      news = await fetchRealTimeNews("career", input.data.companies ?? [], bdConfig)
+      jobs = await fetchJobPostings(input.data.companies ?? [], input.data.roles ?? [], bdConfig)
+    } else {
+      news = await fetchRealTimeNews("client", input.data.accounts ?? [], bdConfig)
+      companyIntel = await fetchCompanyIntel(
+        input.data.accounts ?? [],
+        input.data.competitors ?? [],
+        bdConfig,
+      )
+    }
+  } catch (err) {
+    console.error("[v0] Bright Data fetch failed:", err)
+  }
+
+  // ------ Build prompt ------
+  const intelSection = formatIntelligenceForPrompt(news, jobs, companyIntel)
+  let userPrompt = buildBaseUserPrompt(input.persona, input.data)
+  if (intelSection) userPrompt += `\n\n${intelSection}`
+  if (input.data.context?.trim()) {
+    userPrompt += `\n\n--- ${PERSONA_CONTEXT_LABEL[input.persona]} (cross-reference; mark [LINKED] when used) ---\n${input.data.context.trim()}\n---`
+  }
+  userPrompt += `\n\nProvide exactly 3 bullets, numbered 1., 2., 3. Use [LINKED] for context references and [SOURCE: <name>] for live data citations.`
+
+  // ------ Build model (with optional Mubit memory middleware) ------
+  const mubitApiKey = process.env.MUBIT_API_KEY
+  const mubitAllowed = canUseMubit(plan.id) && Boolean(mubitApiKey)
+
+  // Use AI Gateway by default (zero-config); model is just a string
+  const baseModel = "openai/gpt-4o-mini"
+
+  // The Mubit middleware union doesn't quite line up with AI SDK 6's narrowed
+  // v3 type, but the runtime contract is correct.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const modelToUse: any = mubitAllowed
+    ? wrapLanguageModel({
+        model: baseModel,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        middleware: mubitMemoryMiddleware({
+          apiKey: mubitApiKey!,
+          sessionId: `briefing-${input.persona}-${user.id}`,
+          agentId: `briefing-${input.persona}`,
+          captureMode: "await",
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        }) as any,
+      })
+    : baseModel
+
+  // ------ Generate ------
+  let briefContent: string
+  try {
+    const result = await generateText({
+      model: modelToUse,
+      system: SYSTEM_PROMPTS[input.persona],
+      prompt: userPrompt,
+      maxOutputTokens: 600,
+    })
+    briefContent = result.text.trim()
+  } catch (err) {
+    console.error("[v0] AI generation error:", err)
+    const message = err instanceof Error ? err.message : "AI generation failed"
+    return { success: false, error: message, errorCode: "ai_error" }
+  }
+
+  if (!briefContent) {
+    return { success: false, error: "Empty response from AI", errorCode: "ai_error" }
+  }
+
+  // ------ Persist brief & bump usage ------
+  const citations = collectCitations(news, companyIntel)
+  const dataSources: BriefDataSources = {
+    brightData: {
+      enabled: brightDataAllowed,
+      live: !!(news?.live || jobs?.live || companyIntel?.live),
+      itemCount: (news?.items.length ?? 0) + (jobs?.items.length ?? 0) + (companyIntel?.items.length ?? 0),
+      error: news?.error || jobs?.error || companyIntel?.error,
+    },
+    mubit: { enabled: mubitAllowed },
+  }
+
+  const { data: insertedBrief } = await supabase
+    .from("briefs")
+    .insert({
+      user_id: user.id,
+      persona: input.persona,
+      content: briefContent,
+      citations: citations as unknown as object[],
+      data_sources: dataSources as unknown as object,
+      inputs: input.data as unknown as object,
+    })
+    .select("id")
+    .single()
+
+  await supabase
+    .from("usage")
+    .upsert(
+      { user_id: user.id, month, briefs_count: used + 1, updated_at: new Date().toISOString() },
+      { onConflict: "user_id,month" },
+    )
+
+  return {
+    success: true,
+    brief: briefContent,
+    briefId: insertedBrief?.id,
+    citations,
+    dataSources,
+    usage: { used: used + 1, limit: plan.monthlyBriefLimit },
+  }
+}
+
+// ------------------ Persistence helpers ------------------
+
+export async function saveDashboardConfig(
+  persona: Persona,
+  config: Record<string, unknown>,
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { success: false, error: "Not authenticated" }
+
+  const { error } = await supabase.from("dashboard_configs").upsert(
+    {
+      user_id: user.id,
+      persona,
+      config,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "user_id,persona" },
+  )
+
+  if (error) return { success: false, error: error.message }
+  return { success: true }
+}
+
+export async function deleteBrief(briefId: string): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { success: false, error: "Not authenticated" }
+
+  const { error } = await supabase.from("briefs").delete().eq("id", briefId).eq("user_id", user.id)
+  if (error) return { success: false, error: error.message }
+  return { success: true }
 }

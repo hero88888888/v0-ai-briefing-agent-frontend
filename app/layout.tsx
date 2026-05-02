@@ -7,8 +7,9 @@ const _geist = Geist({ subsets: ["latin"] });
 const _geistMono = Geist_Mono({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: 'AI Briefing Agent',
-  description: 'Macro Intelligence & Career Alpha Dashboard',
+  title: 'Alpha Agent — Daily AI Briefings for Operators',
+  description:
+    'Bloomberg-grade AI intelligence for portfolio managers, B2B sellers, and ambitious operators. Real-time signals + persistent memory + your private context, in 30 seconds.',
   generator: 'v0.app',
   icons: {
     icon: [
