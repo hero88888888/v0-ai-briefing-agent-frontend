@@ -39,7 +39,10 @@ export default function Home() {
   const [showBrief, setShowBrief] = useState(false)
   const [briefContent, setBriefContent] = useState<string | null>(null)
   const [briefError, setBriefError] = useState<string | null>(null)
-  const [apiKey, setApiKey] = useState("")
+  const [dataSources, setDataSources] = useState<{ brightData: boolean; mubit: boolean } | undefined>(undefined)
+  const [openaiKey, setOpenaiKey] = useState("")
+  const [brightDataKey, setBrightDataKey] = useState("")
+  const [mubitKey, setMubitKey] = useState("")
   const [currentTime, setCurrentTime] = useState<string | null>(null)
 
   // Hydration-safe time display
@@ -144,7 +147,9 @@ Competitive Intel:
       
       const result = await generateBrief({
         persona: activePersona,
-        apiKey,
+        apiKey: openaiKey,
+        brightDataApiKey: brightDataKey || undefined,
+        mubitApiKey: mubitKey || undefined,
         data: {
           context: currentData.context,
           ...(activePersona === "macro" && {
@@ -164,6 +169,7 @@ Competitive Intel:
 
       if (result.success && result.brief) {
         setBriefContent(result.brief)
+        setDataSources(result.dataSources)
       } else {
         setBriefError(result.error || "Failed to generate brief")
       }
@@ -242,7 +248,14 @@ Competitive Intel:
 
             {/* Right side - API Key + Status */}
             <div className="flex items-center gap-4">
-              <ApiKeyInput apiKey={apiKey} onApiKeyChange={setApiKey} />
+              <ApiKeyInput 
+                openaiKey={openaiKey}
+                brightDataKey={brightDataKey}
+                mubitKey={mubitKey}
+                onOpenaiKeyChange={setOpenaiKey}
+                onBrightDataKeyChange={setBrightDataKey}
+                onMubitKeyChange={setMubitKey}
+              />
               
               <div className="hidden md:flex items-center gap-2 text-xs text-muted-foreground">
                 <Activity className="w-3 h-3 text-primary animate-pulse" />
@@ -290,6 +303,7 @@ Competitive Intel:
         persona={activePersona}
         briefContent={briefContent}
         error={briefError}
+        dataSources={dataSources}
       />
 
       {/* Footer */}

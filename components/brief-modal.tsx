@@ -1,6 +1,6 @@
 "use client"
 
-import { X, FileText, Sparkles, AlertCircle, Link2 } from "lucide-react"
+import { X, FileText, Sparkles, AlertCircle, Link2, Database, Brain } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
@@ -12,6 +12,10 @@ interface BriefModalProps {
   persona: Persona
   briefContent: string | null
   error?: string | null
+  dataSources?: {
+    brightData: boolean
+    mubit: boolean
+  }
 }
 
 const personaTitles: Record<Persona, string> = {
@@ -20,7 +24,7 @@ const personaTitles: Record<Persona, string> = {
   client: "Client Intelligence Brief"
 }
 
-export function BriefModal({ isOpen, onClose, persona, briefContent, error }: BriefModalProps) {
+export function BriefModal({ isOpen, onClose, persona, briefContent, error, dataSources }: BriefModalProps) {
   if (!isOpen) return null
 
   const title = personaTitles[persona]
@@ -98,9 +102,27 @@ export function BriefModal({ isOpen, onClose, persona, briefContent, error }: Br
               </div>
             ) : (
               <div className="space-y-4">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <FileText className="w-4 h-4" />
-                  <span>AI-Generated Intelligence Brief</span>
+                <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                  <div className="flex items-center gap-1.5">
+                    <FileText className="w-4 h-4" />
+                    <span>AI-Generated Intelligence Brief</span>
+                  </div>
+                  {dataSources && (
+                    <div className="flex items-center gap-2 ml-2">
+                      {dataSources.brightData && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-500/10 text-blue-400 text-xs font-medium rounded border border-blue-500/20">
+                          <Database className="w-3 h-3" />
+                          Bright Data
+                        </span>
+                      )}
+                      {dataSources.mubit && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-500/10 text-purple-400 text-xs font-medium rounded border border-purple-500/20">
+                          <Brain className="w-3 h-3" />
+                          Mubit Memory
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
                 
                 <ul className="space-y-4">
