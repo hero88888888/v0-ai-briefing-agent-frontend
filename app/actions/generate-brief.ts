@@ -9,6 +9,7 @@ interface GenerateBriefInput {
   persona: Persona
   apiKey: string
   data: {
+    context?: string
     portfolios?: string[]
     assetClasses?: string[]
     companies?: string[]
@@ -26,6 +27,8 @@ Based on the provided portfolios/PMs and tracked asset classes, generate a 3-bul
 2. Highlights a key risk or opportunity across the portfolios
 3. Provides one specific action item for today
 
+CRITICAL: If "Past Trade Memos & Briefs" context is provided, you MUST cross-reference your intelligence with those notes. Explicitly connect new developments to past analysis (e.g., "Building on your Q1 memo prediction about BoJ rate hikes..."). If a bullet draws from the provided context, end that bullet with [LINKED] marker.
+
 Be specific, use realistic market terminology, and reference actual market dynamics. Format each bullet as a single impactful sentence.`,
 
   career: `You are a career strategist specializing in high-growth tech companies and executive roles. Your role is to provide concise, actionable intelligence for ambitious professionals.
@@ -34,6 +37,8 @@ Based on the provided target companies and target roles, generate a 3-bullet-poi
 1. Identifies the most relevant hiring signal or opportunity at the target companies
 2. Highlights a strategic networking move or career positioning insight
 3. Provides one specific action item for today
+
+CRITICAL: If "Friend Group Shared Notes" context is provided, you MUST cross-reference your intelligence with those notes. Explicitly connect new insights to past conversations or shared intel (e.g., "Following up on John's interview feedback from Stripe..."). If a bullet draws from the provided context, end that bullet with [LINKED] marker.
 
 Be specific about companies, roles, and realistic career dynamics. Format each bullet as a single impactful sentence.`,
 
@@ -44,34 +49,40 @@ Based on the provided target accounts and tracked competitors, generate a 3-bull
 2. Highlights a competitive threat or positioning opportunity vs tracked competitors
 3. Provides one specific sales action item for today
 
+CRITICAL: If "CRM & Team Notes" context is provided, you MUST cross-reference your intelligence with those notes. Explicitly connect trigger events to past conversations or relationship history (e.g., "Building on your previous conversation with the CTO about cloud costs..."). If a bullet draws from the provided context, end that bullet with [LINKED] marker.
+
 Be specific about companies, realistic business events, and sales strategies. Format each bullet as a single impactful sentence.`
 }
 
 function buildUserPrompt(persona: Persona, data: GenerateBriefInput["data"]): string {
+  const contextSection = data.context?.trim() 
+    ? `\n\n--- HISTORICAL CONTEXT (Cross-reference this in your analysis) ---\n${data.context}\n---`
+    : ""
+
   switch (persona) {
     case "macro":
       return `Generate my daily macro intelligence brief.
 
 Target Portfolios/PMs: ${data.portfolios?.join(", ") || "Global Macro Fund, EM Opportunities"}
-Tracked Asset Classes: ${data.assetClasses?.join(", ") || "US Treasuries, EUR/USD, Crude Oil"}
+Tracked Asset Classes: ${data.assetClasses?.join(", ") || "US Treasuries, EUR/USD, Crude Oil"}${contextSection ? `\n\nPast Trade Memos & Briefs:${contextSection}` : ""}
 
-Provide exactly 3 bullet points, each as a single sentence.`
+Provide exactly 3 bullet points, each as a single sentence. If you reference the historical context, end that bullet with [LINKED].`
 
     case "career":
       return `Generate my daily career alpha brief.
 
 Target Companies: ${data.companies?.join(", ") || "OpenAI, Anthropic, Google DeepMind"}
-Target Roles: ${data.roles?.join(", ") || "Chief of Staff, VP Strategy, Head of BD"}
+Target Roles: ${data.roles?.join(", ") || "Chief of Staff, VP Strategy, Head of BD"}${contextSection ? `\n\nFriend Group Shared Notes:${contextSection}` : ""}
 
-Provide exactly 3 bullet points, each as a single sentence.`
+Provide exactly 3 bullet points, each as a single sentence. If you reference the historical context, end that bullet with [LINKED].`
 
     case "client":
       return `Generate my daily client intelligence brief.
 
 Target Accounts: ${data.accounts?.join(", ") || "Snowflake, Palantir, Databricks"}
-Tracked Competitors: ${data.competitors?.join(", ") || "Microsoft Azure, AWS, Google Cloud"}
+Tracked Competitors: ${data.competitors?.join(", ") || "Microsoft Azure, AWS, Google Cloud"}${contextSection ? `\n\nCRM & Team Notes:${contextSection}` : ""}
 
-Provide exactly 3 bullet points, each as a single sentence.`
+Provide exactly 3 bullet points, each as a single sentence. If you reference the historical context, end that bullet with [LINKED].`
   }
 }
 

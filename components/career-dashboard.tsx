@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Plus, X, Building2, Briefcase, TrendingUp, DollarSign, Calendar } from "lucide-react"
+import { Plus, X, Building2, Briefcase, TrendingUp, DollarSign, Calendar, FileText } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -11,8 +11,10 @@ interface CareerDashboardProps {
   isGenerating: boolean
   companies: string[]
   roles: string[]
+  context: string
   onCompaniesChange: (companies: string[]) => void
   onRolesChange: (roles: string[]) => void
+  onContextChange: (context: string) => void
 }
 
 const mockFundingAlerts = [
@@ -63,8 +65,10 @@ export function CareerDashboard({
   isGenerating,
   companies,
   roles,
+  context,
   onCompaniesChange,
-  onRolesChange
+  onRolesChange,
+  onContextChange
 }: CareerDashboardProps) {
   const [newCompany, setNewCompany] = useState("")
   const [newRole, setNewRole] = useState("")
@@ -193,6 +197,27 @@ export function CareerDashboard({
                 </div>
               ))}
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Context/Notes Textarea */}
+        <Card className="border-border bg-card">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base font-medium">
+              <FileText className="w-4 h-4 text-primary" />
+              Friend Group Shared Notes
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <textarea
+              value={context}
+              onChange={(e) => onContextChange(e.target.value)}
+              placeholder="e.g., John interviewed at Stripe last week, said they are pausing mid-level hires..."
+              className="w-full h-32 px-3 py-2 bg-input border border-border rounded-md text-foreground placeholder:text-muted-foreground text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+            <p className="text-xs text-muted-foreground mt-2">
+              Add shared intel from your network to help the AI cross-reference
+            </p>
           </CardContent>
         </Card>
 

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Plus, X, Calendar, Clock, Users, TrendingUp } from "lucide-react"
+import { Plus, X, Calendar, Clock, Users, TrendingUp, FileText } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -11,8 +11,10 @@ interface MacroDashboardProps {
   isGenerating: boolean
   portfolios: string[]
   assetClasses: string[]
+  context: string
   onPortfoliosChange: (portfolios: string[]) => void
   onAssetClassesChange: (assetClasses: string[]) => void
+  onContextChange: (context: string) => void
 }
 
 const mockMeetings = [
@@ -55,8 +57,10 @@ export function MacroDashboard({
   isGenerating,
   portfolios,
   assetClasses,
+  context,
   onPortfoliosChange,
-  onAssetClassesChange
+  onAssetClassesChange,
+  onContextChange
 }: MacroDashboardProps) {
   const [newPortfolio, setNewPortfolio] = useState("")
   const [newAssetClass, setNewAssetClass] = useState("")
@@ -174,6 +178,27 @@ export function MacroDashboard({
                 </div>
               ))}
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Context/Notes Textarea */}
+        <Card className="border-border bg-card">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base font-medium">
+              <FileText className="w-4 h-4 text-primary" />
+              Past Trade Memos & Briefs
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <textarea
+              value={context}
+              onChange={(e) => onContextChange(e.target.value)}
+              placeholder="e.g., My Q1 memo predicted BoJ would delay rate hikes until Q3..."
+              className="w-full h-32 px-3 py-2 bg-input border border-border rounded-md text-foreground placeholder:text-muted-foreground text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+            <p className="text-xs text-muted-foreground mt-2">
+              Add historical context to help the AI cross-reference past analysis
+            </p>
           </CardContent>
         </Card>
 

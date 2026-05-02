@@ -1,6 +1,6 @@
 "use client"
 
-import { X, FileText, Sparkles, AlertCircle } from "lucide-react"
+import { X, FileText, Sparkles, AlertCircle, Link2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
@@ -31,16 +31,24 @@ export function BriefModal({ isOpen, onClose, persona, briefContent, error }: Br
     day: "numeric" 
   })
 
-  // Parse bullet points from the AI response
-  const parseBulletPoints = (content: string): string[] => {
+  // Parse bullet points from the AI response and detect linked items
+  const parseBulletPoints = (content: string): Array<{ text: string; isLinked: boolean }> => {
     // Split by common bullet patterns
     const lines = content.split(/\n/).filter(line => line.trim())
     
-    // Clean up each line
+    // Clean up each line and check for [LINKED] marker
     return lines.map(line => {
       // Remove leading numbers, bullets, dashes, asterisks
-      return line.replace(/^[\d\.\)\-\*\•]+\s*/, "").trim()
-    }).filter(line => line.length > 0)
+      let cleanedLine = line.replace(/^[\d\.\)\-\*\•]+\s*/, "").trim()
+      
+      // Check for [LINKED] marker
+      const isLinked = cleanedLine.includes("[LINKED]")
+      
+      // Remove the marker from display
+      cleanedLine = cleanedLine.replace(/\s*\[LINKED\]\s*/g, "").trim()
+      
+      return { text: cleanedLine, isLinked }
+    }).filter(item => item.text.length > 0)
   }
 
   const bulletPoints = briefContent ? parseBulletPoints(briefContent) : []
@@ -96,17 +104,31 @@ export function BriefModal({ isOpen, onClose, persona, briefContent, error }: Br
                 </div>
                 
                 <ul className="space-y-4">
-                  {bulletPoints.map((point, index) => (
+                  {bulletPoints.map((item, index) => (
                     <li 
                       key={index}
-                      className="flex items-start gap-3 p-4 bg-secondary/50 rounded-lg border border-border"
+                      className={`flex items-start gap-3 p-4 rounded-lg border ${
+                        item.isLinked 
+                          ? "bg-accent/10 border-accent/30" 
+                          : "bg-secondary/50 border-border"
+                      }`}
                     >
                       <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/20 text-primary text-xs font-semibold shrink-0">
                         {index + 1}
                       </span>
-                      <p className="text-sm text-secondary-foreground leading-relaxed">
-                        {point}
-                      </p>
+                      <div className="flex-1">
+                        <p className="text-sm text-secondary-foreground leading-relaxed">
+                          {item.text}
+                        </p>
+                        {item.isLinked && (
+                          <div className="flex items-center gap-1.5 mt-2">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-accent/20 text-accent text-xs font-medium rounded">
+                              <Link2 className="w-3 h-3" />
+                              Linked to Notes
+                            </span>
+                          </div>
+                        )}
+                      </div>
                     </li>
                   ))}
                 </ul>

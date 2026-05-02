@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Plus, X, Building2, Target, AlertTriangle, UserCheck, Package, TrendingDown, Calendar } from "lucide-react"
+import { Plus, X, Building2, Target, AlertTriangle, UserCheck, Package, TrendingDown, Calendar, FileText } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -11,8 +11,10 @@ interface ClientDashboardProps {
   isGenerating: boolean
   accounts: string[]
   competitors: string[]
+  context: string
   onAccountsChange: (accounts: string[]) => void
   onCompetitorsChange: (competitors: string[]) => void
+  onContextChange: (context: string) => void
 }
 
 const mockAccountTriggers = [
@@ -63,8 +65,10 @@ export function ClientDashboard({
   isGenerating,
   accounts,
   competitors,
+  context,
   onAccountsChange,
-  onCompetitorsChange
+  onCompetitorsChange,
+  onContextChange
 }: ClientDashboardProps) {
   const [newAccount, setNewAccount] = useState("")
   const [newCompetitor, setNewCompetitor] = useState("")
@@ -212,6 +216,27 @@ export function ClientDashboard({
                 </div>
               ))}
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Context/Notes Textarea */}
+        <Card className="border-border bg-card">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base font-medium">
+              <FileText className="w-4 h-4 text-primary" />
+              CRM & Team Notes
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <textarea
+              value={context}
+              onChange={(e) => onContextChange(e.target.value)}
+              placeholder="e.g., Spoke with Snowflake CTO last month, they are worried about cloud compute costs..."
+              className="w-full h-32 px-3 py-2 bg-input border border-border rounded-md text-foreground placeholder:text-muted-foreground text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+            <p className="text-xs text-muted-foreground mt-2">
+              Add CRM notes and team intel to help the AI cross-reference triggers
+            </p>
           </CardContent>
         </Card>
 

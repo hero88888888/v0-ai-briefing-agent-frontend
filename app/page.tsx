@@ -13,9 +13,9 @@ import { generateBrief } from "./actions/generate-brief"
 type Persona = "macro" | "career" | "client"
 
 interface DashboardData {
-  macro: { portfolios: string[]; assetClasses: string[] }
-  career: { companies: string[]; roles: string[] }
-  client: { accounts: string[]; competitors: string[] }
+  macro: { portfolios: string[]; assetClasses: string[]; context: string }
+  career: { companies: string[]; roles: string[]; context: string }
+  client: { accounts: string[]; competitors: string[]; context: string }
 }
 
 const personaConfig = {
@@ -56,15 +56,18 @@ export default function Home() {
   const [dashboardData, setDashboardData] = useState<DashboardData>({
     macro: {
       portfolios: ["Global Macro Fund", "EM Opportunities"],
-      assetClasses: ["US Treasuries", "EUR/USD", "Crude Oil"]
+      assetClasses: ["US Treasuries", "EUR/USD", "Crude Oil"],
+      context: ""
     },
     career: {
       companies: ["OpenAI", "Anthropic", "Google DeepMind"],
-      roles: ["Chief of Staff", "VP Strategy", "Head of BD"]
+      roles: ["Chief of Staff", "VP Strategy", "Head of BD"],
+      context: ""
     },
     client: {
       accounts: ["Snowflake", "Palantir", "Databricks"],
-      competitors: ["Microsoft Azure", "AWS", "Google Cloud"]
+      competitors: ["Microsoft Azure", "AWS", "Google Cloud"],
+      context: ""
     }
   })
 
@@ -87,6 +90,7 @@ export default function Home() {
         persona: activePersona,
         apiKey,
         data: {
+          context: currentData.context,
           ...(activePersona === "macro" && {
             portfolios: currentData.portfolios,
             assetClasses: currentData.assetClasses
@@ -124,8 +128,10 @@ export default function Home() {
             isGenerating={isGenerating}
             portfolios={dashboardData.macro.portfolios}
             assetClasses={dashboardData.macro.assetClasses}
+            context={dashboardData.macro.context}
             onPortfoliosChange={(portfolios) => updateDashboardData("macro", { portfolios })}
             onAssetClassesChange={(assetClasses) => updateDashboardData("macro", { assetClasses })}
+            onContextChange={(context) => updateDashboardData("macro", { context })}
           />
         )
       case "career":
@@ -135,8 +141,10 @@ export default function Home() {
             isGenerating={isGenerating}
             companies={dashboardData.career.companies}
             roles={dashboardData.career.roles}
+            context={dashboardData.career.context}
             onCompaniesChange={(companies) => updateDashboardData("career", { companies })}
             onRolesChange={(roles) => updateDashboardData("career", { roles })}
+            onContextChange={(context) => updateDashboardData("career", { context })}
           />
         )
       case "client":
@@ -146,8 +154,10 @@ export default function Home() {
             isGenerating={isGenerating}
             accounts={dashboardData.client.accounts}
             competitors={dashboardData.client.competitors}
+            context={dashboardData.client.context}
             onAccountsChange={(accounts) => updateDashboardData("client", { accounts })}
             onCompetitorsChange={(competitors) => updateDashboardData("client", { competitors })}
+            onContextChange={(context) => updateDashboardData("client", { context })}
           />
         )
     }
