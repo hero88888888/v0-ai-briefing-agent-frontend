@@ -1,6 +1,6 @@
 "use server"
 
-import { generateText, wrapLanguageModel } from "ai"
+import { gateway, generateText, wrapLanguageModel, type LanguageModel } from "ai"
 import { mubitMemoryMiddleware } from "@mubit-ai/ai-sdk"
 import { createClient } from "@/lib/supabase/server"
 import { canUseBrightData, canUseMubit, getPlan } from "@/lib/plans"
@@ -210,15 +210,15 @@ export async function generateBrief(input: GenerateBriefInput): Promise<Generate
   const mubitApiKey = process.env.MUBIT_API_KEY
   const mubitAllowed = canUseMubit(plan.id) && Boolean(mubitApiKey)
 
-  // Use AI Gateway by default (zero-config); model is just a string
-  const baseModel = "openai/gpt-4o-mini"
+  // Use AI Gateway (zero-config). When Mubit is enabled, wrap the gateway model
+  // so the language-model call is intercepted and persisted to Mubit's memory.
+  const baseModel: LanguageModel = gateway("openai/gpt-4o-mini")
 
-  // The Mubit middleware union doesn't quite line up with AI SDK 6's narrowed
-  // v3 type, but the runtime contract is correct.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const modelToUse: any = mubitAllowed
+  const modelToUse: LanguageModel = mubitAllowed
     ? wrapLanguageModel({
         model: baseModel,
+        // The Mubit middleware type union is slightly looser than AI SDK 6's
+        // narrowed v3 type, but the runtime contract is correct.
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         middleware: mubitMemoryMiddleware({
           apiKey: mubitApiKey!,
