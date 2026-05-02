@@ -52,22 +52,78 @@ export default function Home() {
     return () => clearInterval(interval)
   }, [])
   
-  // Dashboard data state
+  // Dashboard data state with realistic pre-populated context
   const [dashboardData, setDashboardData] = useState<DashboardData>({
     macro: {
       portfolios: ["Global Macro Fund", "EM Opportunities"],
       assetClasses: ["US Treasuries", "EUR/USD", "Crude Oil"],
-      context: ""
+      context: `Q1 2024 Trade Memo (March 15):
+- Predicted BoJ would delay rate hikes until Q3 due to weak wage growth data
+- Positioned long USD/JPY at 148.50, target 155
+- Flagged China property sector as key EM risk factor
+
+Q4 2023 Review (Dec 20):
+- Called the Fed pivot correctly, trimmed duration underweight in Nov
+- Crude oil positioning was wrong - expected $90+ but got $70s
+- EM local currency bonds outperformed, should have had larger allocation
+
+Weekly Note (April 2):
+- ECB likely to cut before Fed based on inflation trajectory
+- Watch German manufacturing PMI for EUR direction
+- Treasury 10Y resistance at 4.50%, support at 4.20%`
     },
     career: {
       companies: ["OpenAI", "Anthropic", "Google DeepMind"],
       roles: ["Chief of Staff", "VP Strategy", "Head of BD"],
-      context: ""
+      context: `Network Intel - April 2024:
+
+John (ex-Stripe):
+- Interviewed at Stripe last week for VP Ops role
+- Said they're pausing mid-level hires but still backfilling senior roles
+- Hiring manager mentioned Q3 IPO prep is driving urgency
+
+Sarah (Google DeepMind):
+- DeepMind spinning up new enterprise sales team
+- Looking for people with both technical + GTM experience
+- Dario from Anthropic apparently poaching their safety researchers
+
+LinkedIn Notes:
+- OpenAI posted 12 Chief of Staff adjacent roles in past 30 days
+- Anthropic's Head of BD left in March, role still open
+- Noticed 3 Google PMs moved to Perplexity this quarter
+
+Coffee Chat - Mike (VC partner):
+- Said AI infra companies are the hot ticket right now
+- Recommended looking at Series B/C stage for best equity upside`
     },
     client: {
       accounts: ["Snowflake", "Palantir", "Databricks"],
       competitors: ["Microsoft Azure", "AWS", "Google Cloud"],
-      context: ""
+      context: `CRM Notes - Q1 2024:
+
+Snowflake (Last touch: March 28):
+- Met with CTO Sarah Chen at AWS re:Invent afterparty
+- She mentioned concern about rising cloud compute costs
+- Currently evaluating cost optimization vendors
+- Champion: VP Data Platform (David Kim) - reports to Sarah
+- Blocker: Procurement wants 3 competitive bids
+
+Palantir (Last touch: April 1):
+- New CRO started in February, reorganizing sales team
+- Our contact (James) moved to different division
+- Need to rebuild relationship with new stakeholders
+- Heard they're doubling down on commercial sector
+
+Databricks (Last touch: Feb 15):
+- Lost deal to Microsoft Fabric last quarter
+- CFO concerned about total cost of ownership
+- Technical team loves us, finance team skeptical
+- Renewal coming up in Q3 - high churn risk
+
+Competitive Intel:
+- AWS announced 15% price cut on data services
+- Azure pushing hard on AI integration narrative
+- Google Cloud offering migration credits aggressively`
     }
   })
 
