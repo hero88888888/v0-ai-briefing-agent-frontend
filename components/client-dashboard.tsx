@@ -9,6 +9,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 interface ClientDashboardProps {
   onGenerateBrief: () => void
   isGenerating: boolean
+  accounts: string[]
+  competitors: string[]
+  onAccountsChange: (accounts: string[]) => void
+  onCompetitorsChange: (competitors: string[]) => void
 }
 
 const mockAccountTriggers = [
@@ -54,32 +58,37 @@ const mockAccountTriggers = [
   }
 ]
 
-export function ClientDashboard({ onGenerateBrief, isGenerating }: ClientDashboardProps) {
-  const [accounts, setAccounts] = useState<string[]>(["Snowflake", "Palantir", "Databricks"])
-  const [competitors, setCompetitors] = useState<string[]>(["Microsoft Azure", "AWS", "Google Cloud"])
+export function ClientDashboard({ 
+  onGenerateBrief, 
+  isGenerating,
+  accounts,
+  competitors,
+  onAccountsChange,
+  onCompetitorsChange
+}: ClientDashboardProps) {
   const [newAccount, setNewAccount] = useState("")
   const [newCompetitor, setNewCompetitor] = useState("")
 
   const addAccount = () => {
     if (newAccount.trim()) {
-      setAccounts([...accounts, newAccount.trim()])
+      onAccountsChange([...accounts, newAccount.trim()])
       setNewAccount("")
     }
   }
 
   const removeAccount = (index: number) => {
-    setAccounts(accounts.filter((_, i) => i !== index))
+    onAccountsChange(accounts.filter((_, i) => i !== index))
   }
 
   const addCompetitor = () => {
     if (newCompetitor.trim()) {
-      setCompetitors([...competitors, newCompetitor.trim()])
+      onCompetitorsChange([...competitors, newCompetitor.trim()])
       setNewCompetitor("")
     }
   }
 
   const removeCompetitor = (index: number) => {
-    setCompetitors(competitors.filter((_, i) => i !== index))
+    onCompetitorsChange(competitors.filter((_, i) => i !== index))
   }
 
   const getTriggerIcon = (type: string) => {
@@ -219,7 +228,7 @@ export function ClientDashboard({ onGenerateBrief, isGenerating }: ClientDashboa
               Generating Brief...
             </span>
           ) : (
-            "Generate Mock Brief"
+            "Generate AI Brief"
           )}
         </Button>
       </div>

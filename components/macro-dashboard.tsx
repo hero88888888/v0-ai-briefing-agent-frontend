@@ -9,6 +9,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 interface MacroDashboardProps {
   onGenerateBrief: () => void
   isGenerating: boolean
+  portfolios: string[]
+  assetClasses: string[]
+  onPortfoliosChange: (portfolios: string[]) => void
+  onAssetClassesChange: (assetClasses: string[]) => void
 }
 
 const mockMeetings = [
@@ -46,32 +50,37 @@ const mockMeetings = [
   }
 ]
 
-export function MacroDashboard({ onGenerateBrief, isGenerating }: MacroDashboardProps) {
-  const [portfolios, setPortfolios] = useState<string[]>(["Global Macro Fund", "EM Opportunities"])
-  const [assetClasses, setAssetClasses] = useState<string[]>(["US Treasuries", "EUR/USD", "Crude Oil"])
+export function MacroDashboard({ 
+  onGenerateBrief, 
+  isGenerating,
+  portfolios,
+  assetClasses,
+  onPortfoliosChange,
+  onAssetClassesChange
+}: MacroDashboardProps) {
   const [newPortfolio, setNewPortfolio] = useState("")
   const [newAssetClass, setNewAssetClass] = useState("")
 
   const addPortfolio = () => {
     if (newPortfolio.trim()) {
-      setPortfolios([...portfolios, newPortfolio.trim()])
+      onPortfoliosChange([...portfolios, newPortfolio.trim()])
       setNewPortfolio("")
     }
   }
 
   const removePortfolio = (index: number) => {
-    setPortfolios(portfolios.filter((_, i) => i !== index))
+    onPortfoliosChange(portfolios.filter((_, i) => i !== index))
   }
 
   const addAssetClass = () => {
     if (newAssetClass.trim()) {
-      setAssetClasses([...assetClasses, newAssetClass.trim()])
+      onAssetClassesChange([...assetClasses, newAssetClass.trim()])
       setNewAssetClass("")
     }
   }
 
   const removeAssetClass = (index: number) => {
-    setAssetClasses(assetClasses.filter((_, i) => i !== index))
+    onAssetClassesChange(assetClasses.filter((_, i) => i !== index))
   }
 
   return (
@@ -181,7 +190,7 @@ export function MacroDashboard({ onGenerateBrief, isGenerating }: MacroDashboard
               Generating Brief...
             </span>
           ) : (
-            "Generate Mock Brief"
+            "Generate AI Brief"
           )}
         </Button>
       </div>

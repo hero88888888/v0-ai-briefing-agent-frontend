@@ -9,6 +9,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 interface CareerDashboardProps {
   onGenerateBrief: () => void
   isGenerating: boolean
+  companies: string[]
+  roles: string[]
+  onCompaniesChange: (companies: string[]) => void
+  onRolesChange: (roles: string[]) => void
 }
 
 const mockFundingAlerts = [
@@ -54,32 +58,37 @@ const mockFundingAlerts = [
   }
 ]
 
-export function CareerDashboard({ onGenerateBrief, isGenerating }: CareerDashboardProps) {
-  const [companies, setCompanies] = useState<string[]>(["OpenAI", "Anthropic", "Google DeepMind"])
-  const [roles, setRoles] = useState<string[]>(["Chief of Staff", "VP Strategy", "Head of BD"])
+export function CareerDashboard({ 
+  onGenerateBrief, 
+  isGenerating,
+  companies,
+  roles,
+  onCompaniesChange,
+  onRolesChange
+}: CareerDashboardProps) {
   const [newCompany, setNewCompany] = useState("")
   const [newRole, setNewRole] = useState("")
 
   const addCompany = () => {
     if (newCompany.trim()) {
-      setCompanies([...companies, newCompany.trim()])
+      onCompaniesChange([...companies, newCompany.trim()])
       setNewCompany("")
     }
   }
 
   const removeCompany = (index: number) => {
-    setCompanies(companies.filter((_, i) => i !== index))
+    onCompaniesChange(companies.filter((_, i) => i !== index))
   }
 
   const addRole = () => {
     if (newRole.trim()) {
-      setRoles([...roles, newRole.trim()])
+      onRolesChange([...roles, newRole.trim()])
       setNewRole("")
     }
   }
 
   const removeRole = (index: number) => {
-    setRoles(roles.filter((_, i) => i !== index))
+    onRolesChange(roles.filter((_, i) => i !== index))
   }
 
   const getRelevanceColor = (relevance: string) => {
@@ -200,7 +209,7 @@ export function CareerDashboard({ onGenerateBrief, isGenerating }: CareerDashboa
               Generating Brief...
             </span>
           ) : (
-            "Generate Mock Brief"
+            "Generate AI Brief"
           )}
         </Button>
       </div>
