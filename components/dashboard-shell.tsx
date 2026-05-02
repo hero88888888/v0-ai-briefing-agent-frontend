@@ -236,8 +236,8 @@ export function DashboardShell({
 
   return (
     <main className="max-w-7xl mx-auto px-4 md:px-6 py-6 md:py-8">
-      {/* Title bar */}
-      <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-6">
+      {/* Title bar with Generate Brief button */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
         <div>
           <div className="flex items-center gap-2 mb-1">
             <h1 className="text-2xl md:text-3xl font-semibold tracking-tight">
@@ -250,7 +250,27 @@ export function DashboardShell({
           </div>
           <p className="text-sm text-muted-foreground">{personaInfo.description}</p>
         </div>
-        <PersonaToggle activePersona={activePersona} onPersonaChange={setActivePersona} />
+        <div className="flex items-center gap-3">
+          <Button
+            onClick={handleGenerate}
+            disabled={isGenerating}
+            size="lg"
+            className="bg-primary hover:bg-primary/90"
+          >
+            {isGenerating ? (
+              <span className="flex items-center gap-2">
+                <span className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+                Generating...
+              </span>
+            ) : (
+              <span className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4" />
+                Generate Brief
+              </span>
+            )}
+          </Button>
+          <PersonaToggle activePersona={activePersona} onPersonaChange={setActivePersona} />
+        </div>
       </div>
 
       {/* Free plan upgrade nudge */}
