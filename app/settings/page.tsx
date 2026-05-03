@@ -3,8 +3,9 @@ import { redirect } from "next/navigation"
 import { getPlan } from "@/lib/plans"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { ScheduleBriefPanel } from "@/components/schedule-brief-panel"
 import Link from "next/link"
-import { TerminalSquare, ArrowLeft, CreditCard, User, Activity } from "lucide-react"
+import { TerminalSquare, ArrowLeft, CreditCard, User, Activity, Clock } from "lucide-react"
 import { ManageBillingButton } from "@/components/manage-billing-button"
 
 export const metadata = {
@@ -148,6 +149,19 @@ export default async function SettingsPage() {
             <Row label="Briefs all-time" value={<span className="font-mono">{totalBriefs ?? 0}</span>} />
             <Row label="Live data" value={plan.id === "free" ? "Disabled" : "Bright Data — enabled"} />
             <Row label="Memory" value={plan.id === "free" ? "Disabled" : "Mubit — enabled"} />
+          </CardContent>
+        </Card>
+
+        {/* Automation */}
+        <Card className="border-border bg-card border-primary/30">
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Clock className="w-4 h-4 text-primary" />
+              Automation
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ScheduleBriefPanel />
           </CardContent>
         </Card>
       </main>
